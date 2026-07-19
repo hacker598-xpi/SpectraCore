@@ -1,7 +1,7 @@
 # SpectraCore
 
 **Biblioteca de análisis espectral en tiempo real**  
-Versión 2.0 · Licencia Apache 2.0
+Versión 3.0.0 · Licencia Apache 2.0
 
 SpectraCore es una librería C++20 de alto rendimiento para el cálculo de FFT real con aceleración SIMD (SSE4.1, AVX2, AVX-512, NEON). Está diseñada para visualizadores musicales, ecualizadores gráficos y cualquier aplicación que necesite transformar audio en espectros frecuenciales de forma ultrarrápida.
 
