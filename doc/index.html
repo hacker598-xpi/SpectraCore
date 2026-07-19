@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpectraCore – Documentación completa</title>
+<style>
+  body { background:#1a1a1a; color:#e0e0e0; font-family:system-ui,sans-serif; margin:2rem; line-height:1.7 }
+  h1,h2,h3 { color:#ffb86c }
+  code { background:#2d2d2d; padding:0.2em 0.4em; border-radius:4px; font-family:monospace; color:#f8f8f2 }
+  pre { background:#2d2d2d; padding:1.2em; border-radius:6px; overflow-x:auto }
+  pre code { background:none; padding:0 }
+  a { color:#bd93f9 }
+  table { border-collapse:collapse; width:100%; margin:1.5em 0 }
+  th,td { border:1px solid #444; padding:0.6em 1em; text-align:left }
+  th { background:#2d2d2d }
+  .note { background:#1e3a5f; border-left:4px solid #8be9fd; padding:1em; margin:1.5em 0; border-radius:4px; color:#d0e8ff }
+  .warning { background:#3e2723; border-left:4px solid #ff7043; padding:1em; margin:1.5em 0; border-radius:4px }
+</style>
+</head>
+<body>
+
+<h1>SpectraCore – Documentación completa</h1>
+
+<p><strong>Versión 3.0.0</strong> – Biblioteca de análisis espectral en tiempo real con FFT acelerada por SIMD.</p>
+
+<hr>
+
+<h2>1. Introducción</h2>
+
+<p>SpectraCore es una biblioteca C++20 de alto rendimiento diseñada para transformar audio en espectros frecuenciales en tiempo real. Ideal para visualizadores musicales, ecualizadores, medidores de espectro y cualquier aplicación que necesite procesar señales de audio con mínima latencia.</p>
+
+<p>Características principales:</p>
+<ul>
+  <li>FFT real optimizada con <strong>SSE4.1, AVX2, AVX‑512, NEON</strong> (despacho automático en tiempo de ejecución).</li>
+  <li>Ventanas seleccionables: Hann, Hamming, Blackman, Kaiser.</li>
+  <li>Solapamiento configurable (hop size).</li>
+  <li>Suavizado exponencial de magnitudes.</li>
+  <li>Agrupación logarítmica de frecuencias (energía por banda).</li>
+  <li>Salida de magnitud lineal, dB y fase por bin.</li>
+  <li>Doble búfer de entrada y salida para operación segura entre hilos.</li>
+  <li>Modo asíncrono integrado (<code>AsyncAnalyzer</code>) con espera pasiva.</li>
+  <li>Multiplataforma: Windows, macOS, Linux, iOS, Android.</li>
+</ul>
+
+<hr>
+
+<h2>2. Instalación</h2>
+
+<h3>Compilación desde fuentes</h3>
+<pre><code>git clone https://github.com/tu-usuario/SpectraCore.git
+cd SpectraCore
+./build.sh</code></pre>
+
+<p>El script <code>build.sh</code> lee la configuración de <code>config.txt</code> y genera:</p>
+<ul>
+  <li><strong>Biblioteca estática</strong> (<code>libspectracore.a</code>)</li>
+  <li><strong>Biblioteca dinámica</strong> (<code>libspectracore.so</code> o <code>.dylib</code>)</li>
+  <li><strong>Paquete de distribución</strong> (<code>libspectracore-3.0.0-linux-x86_64.tar.gz</code>)</li>
+</ul>
+
+<p>El paquete contiene los encabezados, bibliotecas y esta documentación, listo para usar en otros proyectos.</p>
+
+<h3>Uso en CMake</h3>
+<pre><code>find_package(SpectraCore REQUIRED)
+target_link_libraries(mi_app PRIVATE SpectraCore::spectracore)</code></pre>
+
+<p>O enlaza manualmente:</p>
+<pre><code>g++ -std=c++20 mi_app.cpp -I/path/SpectraCore/include -L/path/lib -lspectracore -o mi_app</code></pre>
+
+<hr>
+
+<h2>3. Conceptos básicos</h2>
+
+<p><strong>Analizador (<code>Analyzer</code>)</strong>: es el corazón de la librería. Toma muestras de audio, las agrupa en cuadros, aplica ventana, calcula la FFT y entrega el espectro.</p>
+
+<p><strong>Flujo de datos:</strong></p>
+<ol>
+  <li>Hilo de audio: llama a <code>pushSamples()</code> con las muestras.</li>
+  <li>Hilo de proceso: llama a <code>processReadyFrame()</code> para calcular el espectro.</li>
+  <li>Hilo de interfaz: obtiene el resultado con <code>getSpectrum()</code>.</li>
+</ol>
+
+<p>El doble búfer interno garantiza que no haya bloqueos entre productor y consumidor.</p>
+
+<hr>
+
+<h2>4. API de <code>Analyzer</code></h2>
+
+<h3>Constructor</h3>
+<pre><code>Analyzer();</code></pre>
+<p>Inicializa el analizador con ventana Hann, 50% de solapamiento y tasa de muestreo 44100 Hz.</p>
+
+<h3>Configuración</h3>
+
+<h4>setWindowType(type, beta=6.0)</h4>
+<pre><code>void setWindowType(WindowType type, float kaiserBeta = 6.0f) noexcept;</code></pre>
+<p>Establece la ventana aplicada a cada cuadro antes de la FFT.</p>
+<ul>
+  <li><code>WindowType::Hann</code></li>
+  <li><code>WindowType::Hamming</code></li>
+  <li><code>WindowType::Blackman</code></li>
+  <li><code>WindowType::Kaiser</code> (usa <code>kaiserBeta</code>)</li>
+</ul>
+
+<h4>setOverlapFactor(factor)</h4>
+<pre><code>void setOverlapFactor(size_t factor) noexcept;</code></pre>
+<p>El avance entre cuadros será <code>hopSize = N / factor</code>. Por ejemplo, <code>factor=2</code> produce 50% de solapamiento.</p>
+
+<h4>setHopSize(hop)</h4>
+<pre><code>void setHopSize(size_t hop) noexcept;</code></pre>
+<p>Define directamente el número de muestras a avanzar entre cuadros. Valores pequeños aumentan el solapamiento y la fluidez.</p>
+
+<h4>setSmoothing(alpha)</h4>
+<pre><code>void setSmoothing(float alpha) noexcept;</code></pre>
+<p>Aplica suavizado exponencial a las magnitudes lineales:</p>
+<pre><code>smoothed = alpha * nuevo + (1 - alpha) * anterior</code></pre>
+<p><code>alpha=1.0</code> desactiva el suavizado; <code>alpha=0.0</code> congela la salida. Típico: 0.2–0.4.</p>
+
+<h4>setLogBands(numBands, minFreq, maxFreq, sampleRate)</h4>
+<pre><code>void setLogBands(size_t numBands, float minFreq, float maxFreq, float sampleRate) noexcept;</code></pre>
+<p>Agrupa los bins de la FFT en bandas logarítmicas. La energía (magnitud²) de cada bin se acumula en la banda correspondiente y luego se convierte a dB. <code>numBands=0</code> desactiva la agrupación.</p>
+
+<h3>Alimentación de datos</h3>
+
+<h4>pushSamples(samples)</h4>
+<pre><code>void pushSamples(std::span<const float> samples) noexcept;</code></pre>
+<p>Envía un bloque de muestras consecutivas. La clase acumula internamente hasta completar un cuadro.</p>
+
+<h3>Procesamiento</h3>
+
+<h4>hasNewFrame()</h4>
+<pre><code>bool hasNewFrame() const noexcept;</code></pre>
+<p>Devuelve <code>true</code> si hay un cuadro listo para procesar (no consume el cuadro).</p>
+
+<h4>waitForFrame()</h4>
+<pre><code>void waitForFrame() const noexcept;</code></pre>
+<p>Bloquea el hilo hasta que haya un nuevo cuadro disponible. Útil en modo asíncrono.</p>
+
+<h4>processReadyFrame()</h4>
+<pre><code>void processReadyFrame() noexcept;</code></pre>
+<p>Toma el cuadro disponible, ejecuta la FFT real, aplica suavizado, bandas logarítmicas y actualiza las salidas.</p>
+
+<h3>Obtención del espectro</h3>
+
+<h4>getSpectrum()</h4>
+<pre><code>struct Spectrum {
+    std::span<const float> magnitudeLin;   // N/2+1 bins
+    std::span<const float> magnitudeDB;    // N/2+1 bins
+    std::span<const float> phase;          // N/2+1 bins
+    std::span<const float> logMagnitudes;  // numLogBands (vacío si no activado)
+};
+
+Spectrum getSpectrum() const noexcept;</code></pre>
+<p>Retorna vistas de solo lectura a los buffers internos. Los datos son consistentes gracias al doble búfer de salida.</p>
+
+<hr>
+
+<h2>5. Modo asíncrono: <code>AsyncAnalyzer</code></h2>
+
+<p>Para integrar rápidamente sin gestionar hilos manualmente:</p>
+
+<pre><code>SpectraCore::AsyncAnalyzer<2048> async;
+
+async.start([](const auto& spectrum) {
+    // Este callback se ejecuta cada vez que hay un nuevo espectro.
+    // spectrum.magnitudeDB, spectrum.phase...
+});
+
+// En el hilo de audio:
+async.analyzer().pushSamples(miBuffer);
+
+// Al finalizar:
+async.stop();</code></pre>
+
+<p>El hilo interno espera pasivamente (sin consumir CPU) hasta que hay datos.</p>
+
+<hr>
+
+<h2>6. Ejemplos prácticos</h2>
+
+<h3>Visualizador básico</h3>
+<pre><code>#include &lt;SpectraCore/Analyzer.h&gt;
+
+int main() {
+    constexpr size_t N = 2048;
+    SpectraCore::Analyzer<N> analizador;
+
+    analizador.setWindowType(SpectraCore::WindowType::Hann);
+    analizador.setOverlapFactor(2);               // 50% solapamiento
+    analizador.setSmoothing(0.3f);
+    analizador.setLogBands(32, 20.0f, 20000.0f, 44100.0f);
+
+    std::vector<float> audio(512);
+    // Llenar audio...
+
+    analizador.pushSamples(audio);
+    if (analizador.hasNewFrame()) {
+        analizador.processReadyFrame();
+        auto spec = analizador.getSpectrum();
+        for (size_t i = 0; i < 32; ++i)
+            std::cout << "Banda " << i << ": " << spec.logMagnitudes[i] << " dB\n";
+    }
+    return 0;
+}</code></pre>
+
+<h3>Integración con PortAudio</h3>
+<pre><code>// En el callback de audio:
+static int callback(const void* input, void* output,
+                    unsigned long framesPerBuffer,
+                    const PaStreamCallbackTimeInfo* timeInfo,
+                    PaStreamCallbackFlags statusFlags,
+                    void* userData) {
+    auto* analizador = static_cast<Analyzer*>(userData);
+    const float* in = static_cast<const float*>(input);
+    analizador->pushSamples({in, framesPerBuffer});
+    // ... copiar a output si es necesario ...
+    return paContinue;
+}</code></pre>
+
+<hr>
+
+<h2>7. Configuración avanzada</h2>
+
+<p>Edita <code>config.txt</code> para personalizar la compilación:</p>
+
+<table>
+  <tr><th>Clave</th><th>Descripción</th><th>Ejemplo</th></tr>
+  <tr><td>TARGET_OS</td><td>Sistema operativo</td><td>"linux", "macos", "windows"</td></tr>
+  <tr><td>BUILD_TYPE</td><td>Release o Debug</td><td>"Release"</td></tr>
+  <tr><td>VERSION</td><td>Versión del paquete</td><td>"3.0.0"</td></tr>
+  <tr><td>ARCH</td><td>Arquitectura (vacío=autodetectar)</td><td>"x86_64"</td></tr>
+  <tr><td>BUILD_TESTS</td><td>Compilar tests</td><td>true</td></tr>
+  <tr><td>BUILD_BENCHMARKS</td><td>Compilar benchmarks</td><td>false</td></tr>
+  <tr><td>BUILD_CORES</td><td>Núcleos de compilación (0=auto)</td><td>4</td></tr>
+  <tr><td>EXTRA_CXX_FLAGS</td><td>Flags adicionales</td><td>"-march=native"</td></tr>
+  <tr><td>VERBOSE</td><td>Salida detallada</td><td>false</td></tr>
+</table>
+
+<hr>
+
+<h2>8. Rendimiento</h2>
+
+<p>Las rutinas SIMD están vectorizadas manualmente con intrínsecos y los twiddles preempaquetados. En pruebas con N=2048 y AVX2, SpectraCore iguala o supera a FFTW3 en escenarios de baja latencia. Para mediciones exactas, active <code>BUILD_BENCHMARKS</code> y ejecute <code>./benchmark</code>.</p>
+
+<hr>
+
+<h2>9. Licencia</h2>
+
+<p>Apache License 2.0. Consulte el archivo <code>LICENSE-2.0.txt</code> incluido en el paquete.</p>
+
+<p style="margin-top:3em; font-size:0.9em; color:#888">SpectraCore 3.0.0 – Documentación generada en 2026.</p>
+
+</body>
+</html>
