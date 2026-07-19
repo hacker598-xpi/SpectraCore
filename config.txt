@@ -1,0 +1,29 @@
+// SpectraCore build configuration
+// Modifica estos valores según tu plataforma y preferencias.
+
+// Sistema operativo destino: "linux", "macos" o "windows"
+TARGET_OS = "linux"
+
+// Tipo de build: "Release" o "Debug"
+BUILD_TYPE = "Release"
+
+// Versión para el nombre del paquete (ej: 3.0.0)
+VERSION = "3.0.0"
+
+// Arquitectura (se autodetecta si está vacío)
+ARCH = ""
+
+// Habilitar tests (true/false)
+BUILD_TESTS = true
+
+// Habilitar benchmarks (true/false). Requiere FFTW3 si es true.
+BUILD_BENCHMARKS = false
+
+// Número de núcleos para compilación (0 = automático)
+BUILD_CORES = 0
+
+// Flags extra de compilación (opcional, separados por espacio)
+EXTRA_CXX_FLAGS = ""
+
+// Modo verboso (true/false)
+VERBOSE = false
