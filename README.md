@@ -109,4 +109,4 @@ Apache License 2.0. Véase el archivo [LICENSE-2.0.txt](LICENSE-2.0.txt).
 
 ## Créditos
 
-Desarrollado por **H4ck3r598**, 2026.
+Desarrollado por **H4ck3r598** Jesús Emanuel, 2026.
